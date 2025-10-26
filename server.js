@@ -28,6 +28,7 @@ app.get('/get-data', (req, res) => {
             if (data.id && data.id.trim() !== '') {
                 results.push(data);
             }
+        })
         .on('end', () => {
             // 3. Khi đọc xong, trả về toàn bộ dữ liệu
             res.status(200).json(results);
