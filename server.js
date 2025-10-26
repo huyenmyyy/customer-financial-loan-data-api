@@ -23,7 +23,11 @@ app.get('/get-data', (req, res) => {
     // 2. Đọc file CSV và chuyển thành JSON
     fs.createReadStream(csvFilePath)
         .pipe(csv())
-        .on('data', (data) => results.push(data))
+        .on('data', (data) => {
+            // Thêm bộ lọc: Chỉ thêm vào kết quả nếu dòng đó có 'id' và 'id' không phải là rỗng.
+            if (data.id && data.id.trim() !== '') {
+                results.push(data);
+            }
         .on('end', () => {
             // 3. Khi đọc xong, trả về toàn bộ dữ liệu
             res.status(200).json(results);
