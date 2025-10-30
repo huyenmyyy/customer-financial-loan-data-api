@@ -31,7 +31,7 @@ app.get('/get-data', (req, res) => {
                     if (row[colName]) {
                         // Moment.js sẽ cố gắng "đoán" định dạng ngày tháng đầu vào (ví dụ: MM/DD/YYYY, YYYY-MM-DD,...)
                         // Sau đó, nó sẽ format lại theo đúng định dạng 'DD-MM-YYYY'
-                        const formattedDate = moment(row[colName]).format('DD-MM-YYYY');
+                        const formattedDate = moment(row[colName], 'DD-MM-YYYY').format('DD-MM-YYYY');
 
                         // Kiểm tra xem ngày tháng có hợp lệ không trước khi gán lại
                         if (formattedDate !== 'Invalid date') {
