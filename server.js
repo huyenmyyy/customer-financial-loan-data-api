@@ -1,53 +1,60 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const XLSX = require('xlsx'); // <-- SỬ DỤNG THƯ VIỆN MỚI
+const csv = require('csv-parser');
+const moment = require('moment'); // <-- THÊM THƯ VIỆN MỚI
 
 const app = express();
 
-// ENDPOINT DUY NHẤT: LẤY DỮ LIỆU DẠNG JSON TỪ FILE EXCEL
+// ENDPOINT DUY NHẤT: LẤY DỮ LIỆU DẠNG JSON TỪ FILE CSV
 app.get('/get-data', (req, res) => {
-    // Đường dẫn trỏ thẳng tới file data.xlsx
-    const xlsxFilePath = path.join(__dirname, 'public', 'data.xlsx');
+    const results = [];
+    const csvFilePath = path.join(__dirname, 'public', 'data.csv');
 
-    // 1. Kiểm tra xem file có tồn tại không
-    if (!fs.existsSync(xlsxFilePath)) {
+    if (!fs.existsSync(csvFilePath)) {
         return res.status(404).json({ 
-            error: "Data file (XLSX) not found on the server." 
+            error: "Data file (CSV) not found on the server." 
         });
     }
 
-    try {
-        // 2. Đọc file Excel
-        const workbook = XLSX.readFile(xlsxFilePath);
-        
-        // 3. Lấy ra sheet đầu tiên
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        
-        // 4. Chuyển đổi toàn bộ sheet đó thành JSON
-        // Đây là bước "ma thuật", thư viện sẽ tự động làm hết cho bạn
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        
-        // 5. Lọc bỏ các dòng trống (nếu có)
-        const filteredData = jsonData.filter(row => {
-            // Chúng ta giả định một dòng là hợp lệ nếu nó có 'id' và 'id' không rỗng
-            // Bạn có thể đổi 'id' thành tên một cột khác mà bạn chắc chắn luôn có dữ liệu
-            return row.id && String(row.id).trim() !== '';
+    fs.createReadStream(csvFilePath)
+        .pipe(csv())
+        .on('data', (row) => {
+            // Lọc bỏ các dòng trống
+            if (row.id && String(row.id).trim() !== '') {
+                
+                // === PHẦN NÂNG CẤP: ĐỊNH DẠNG LẠI NGÀY THÁNG ===
+                // Liệt kê các cột ngày tháng cần xử lý
+                const dateColumns = ['issue_date', 'last_credit_pull_date', 'last_payment_date', 'next_payment_date', 'last_updated'];
+
+                dateColumns.forEach(colName => {
+                    if (row[colName]) {
+                        // Moment.js sẽ cố gắng "đoán" định dạng ngày tháng đầu vào (ví dụ: MM/DD/YYYY, YYYY-MM-DD,...)
+                        // Sau đó, nó sẽ format lại theo đúng định dạng 'DD-MM-YYYY'
+                        const formattedDate = moment(row[colName]).format('DD-MM-YYYY');
+
+                        // Kiểm tra xem ngày tháng có hợp lệ không trước khi gán lại
+                        if (formattedDate !== 'Invalid date') {
+                            row[colName] = formattedDate;
+                        }
+                    }
+                });
+
+                results.push(row);
+            }
+        })
+        .on('end', () => {
+            res.status(200).json(results);
+        })
+        .on('error', (error) => {
+            console.error('Error reading CSV file:', error);
+            res.status(500).json({ error: 'Failed to read data file on the server.' });
         });
-
-        // 6. Trả về dữ liệu JSON đã được làm sạch
-        res.status(200).json(filteredData);
-
-    } catch (error) {
-        console.error('Error processing XLSX file:', error);
-        res.status(500).json({ error: 'Failed to read or process the data file on the server.' });
-    }
 });
 
 // Khởi động server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running and ready to serve data from XLSX at port ${PORT}`);
+    console.log(`Server is running and ready to serve data from CSV at port ${PORT}`);
     console.log('Access data at /get-data');
 });
